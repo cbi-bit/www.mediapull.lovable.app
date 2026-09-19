@@ -186,7 +186,13 @@ def extract_media(request: ExtractRequest):
             height = item.get("height")
             audio_only = item.get("vcodec") == "none" and item.get("acodec") not in {None, "none"}
             bitrate = item.get("abr")
-            formats.append({"format_id": item.get("format_id"), "ext": item.get("ext"), "resolution": "Audio only" if audio_only else item.get("resolution") or (f"{height}p" if height else "Original"), "url": item.get("url"), "note": f"{round(bitrate)} kbps" if audio_only and bitrate else item.get("format_note") or "Standard quality", "audio_only": audio_only})
+            size = item.get("filesize") or item.get("filesize_approx")
+            if not size:
+                tbr = item.get("tbr") or item.get("abr")
+                duration = info.get("duration")
+                if tbr and duration:
+                    size = round(float(tbr) * 1000 * float(duration) / 8)
+            formats.append({"format_id": item.get("format_id"), "ext": item.get("ext"), "resolution": "Audio only" if audio_only else item.get("resolution") or (f"{height}p" if height else "Original"), "url": item.get("url"), "note": f"{round(bitrate)} kbps" if audio_only and bitrate else item.get("format_note") or "Standard quality", "audio_only": audio_only, "filesize": size})
         formats.sort(key=lambda item: (not item["audio_only"], item["resolution"]), reverse=True)
         return {"success": True, "type": "video_audio", "title": info.get("title") or "Extracted media", "thumbnail": info.get("thumbnail"), "duration": info.get("duration"), "logs": logs, "formats": formats[:16]}
     except Exception as exc:
