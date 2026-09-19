@@ -81,16 +81,26 @@ def download_file(src: str, filename: str = "mediapull-download"):
     def open_stream(active_proxy: str | None):
         return requests.get(
             target_url,
-            headers={"User-Agent": "Mozilla/5.0 (compatible; MediaPull/1.0)"},
+            headers={
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0 Safari/537.36",
+                "Accept": "*/*",
+                "Range": "bytes=0-",
+            },
             proxies={"http": active_proxy, "https": active_proxy} if active_proxy else None,
             stream=True,
             timeout=60,
         )
 
     try:
-        response = open_stream(proxy)
-        if response.status_code >= 400 and proxy:
-            response.close()
+        try:
+            response = open_stream(proxy)
+            if response.status_code >= 400 and proxy:
+                response.close()
+                raise requests.RequestException("proxy route rejected")
+        except requests.RequestException:
+            if not proxy:
+                raise
+            logger.warning("Download proxy route failed, retrying direct.")
             response = open_stream(None)
         response.raise_for_status()
     except requests.RequestException as exc:
