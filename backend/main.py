@@ -125,5 +125,5 @@ def extract_media(request: ExtractRequest):
         formats.sort(key=lambda item: (not item["audio_only"], item["resolution"]), reverse=True)
         return {"success": True, "type": "video_audio", "title": info.get("title") or "Extracted media", "thumbnail": info.get("thumbnail"), "duration": info.get("duration"), "logs": logs, "formats": formats[:16]}
     except Exception as exc:
-        logger.warning("Media extraction failed: %s", type(exc).__name__)
+        logger.warning("Media extraction failed for %s: %s: %s", target_url, type(exc).__name__, str(exc)[:400])
         raise HTTPException(status_code=400, detail="Unable to extract this public link.") from exc
