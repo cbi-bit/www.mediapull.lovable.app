@@ -148,7 +148,13 @@ def extract_media(request: ExtractRequest):
             raise HTTPException(status_code=502, detail="The source page could not be read.") from exc
 
     def run_ydl(active_proxy: str | None):
-        options = {"quiet": True, "no_warnings": True, "skip_download": True, "format": "best"}
+        options = {
+            "quiet": True,
+            "no_warnings": True,
+            "skip_download": True,
+            "ignore_no_formats_error": True,
+            "extractor_args": {"youtube": {"player_client": ["android", "web_safari", "tv", "ios"]}},
+        }
         if active_proxy:
             options["proxy"] = active_proxy
         with yt_dlp.YoutubeDL(options) as ydl:
