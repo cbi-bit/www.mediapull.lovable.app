@@ -10,6 +10,7 @@ import yt_dlp
 from bs4 import BeautifulSoup
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, HttpUrl
 
 app = FastAPI(title="MediaPull.co API Engine")
@@ -72,6 +73,44 @@ def health():
     return {"ok": True, "proxy_configured": get_brightdata_proxy() is not None}
 
 
+@app.get("/api/download")
+def download_file(src: str, filename: str = "mediapull-download"):
+    target_url = validate_public_url(src)
+    proxy = get_brightdata_proxy()
+
+    def open_stream(active_proxy: str | None):
+        return requests.get(
+            target_url,
+            headers={"User-Agent": "Mozilla/5.0 (compatible; MediaPull/1.0)"},
+            proxies={"http": active_proxy, "https": active_proxy} if active_proxy else None,
+            stream=True,
+            timeout=60,
+        )
+
+    try:
+        response = open_stream(proxy)
+        if response.status_code >= 400 and proxy:
+            response.close()
+            response = open_stream(None)
+        response.raise_for_status()
+    except requests.RequestException as exc:
+        logger.warning("Download proxy failed: %s", str(exc)[:200])
+        raise HTTPException(status_code=502, detail="The file could not be fetched from the source.") from exc
+
+    safe_name = "".join(character for character in filename if character.isalnum() or character in "-_. ")[:120] or "mediapull-download"
+    headers = {
+        "Content-Disposition": f'attachment; filename="{safe_name}"',
+        "Cache-Control": "no-store",
+    }
+    if response.headers.get("Content-Length"):
+        headers["Content-Length"] = response.headers["Content-Length"]
+    return StreamingResponse(
+        response.iter_content(chunk_size=262144),
+        media_type=response.headers.get("Content-Type", "application/octet-stream"),
+        headers=headers,
+    )
+
+
 @app.post("/api/extract")
 def extract_media(request: ExtractRequest):
     target_url = validate_public_url(str(request.url))
@@ -108,12 +147,22 @@ def extract_media(request: ExtractRequest):
             logger.warning("Document extraction failed: %s", type(exc).__name__)
             raise HTTPException(status_code=502, detail="The source page could not be read.") from exc
 
-    options = {"quiet": True, "no_warnings": True, "skip_download": True, "format": "best"}
-    if proxy:
-        options["proxy"] = proxy
-    try:
+    def run_ydl(active_proxy: str | None):
+        options = {"quiet": True, "no_warnings": True, "skip_download": True, "format": "best"}
+        if active_proxy:
+            options["proxy"] = active_proxy
         with yt_dlp.YoutubeDL(options) as ydl:
-            info = ydl.extract_info(target_url, download=False)
+            return ydl.extract_info(target_url, download=False)
+
+    try:
+        try:
+            info = run_ydl(proxy)
+        except Exception as proxy_exc:  # noqa: BLE001
+            if not proxy:
+                raise
+            logger.warning("Proxy route failed, retrying direct: %s", str(proxy_exc)[:200])
+            logs = public_logs(False)
+            info = run_ydl(None)
         formats = []
         for item in info.get("formats", []):
             if item.get("vcodec") == "none" and item.get("acodec") == "none":
