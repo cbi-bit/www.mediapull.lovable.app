@@ -3,6 +3,7 @@ import logging
 import os
 import random
 import socket
+import time
 from urllib.parse import urljoin, urlparse
 
 import requests
@@ -29,6 +30,9 @@ logger = logging.getLogger("MediaPullBackend")
 
 BRIGHTDATA_HOST = os.getenv("BRIGHTDATA_HOST", "brd.superproxy.io")
 BRIGHTDATA_PORT = os.getenv("BRIGHTDATA_PORT", "33335")
+
+EXTRACT_CACHE: dict[str, tuple[float, dict]] = {}
+EXTRACT_CACHE_TTL = 600
 
 
 class ExtractRequest(BaseModel):
@@ -84,24 +88,26 @@ def download_file(src: str, filename: str = "mediapull-download"):
             headers={
                 "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0 Safari/537.36",
                 "Accept": "*/*",
+                "Accept-Encoding": "identity",
                 "Range": "bytes=0-",
             },
             proxies={"http": active_proxy, "https": active_proxy} if active_proxy else None,
             stream=True,
-            timeout=60,
+            timeout=(10, 120),
         )
 
     try:
+        # Direct route first: it is far faster than the residential proxy.
         try:
-            response = open_stream(proxy)
-            if response.status_code >= 400 and proxy:
+            response = open_stream(None)
+            if response.status_code >= 400:
                 response.close()
-                raise requests.RequestException("proxy route rejected")
+                raise requests.RequestException("direct route rejected")
         except requests.RequestException:
             if not proxy:
                 raise
-            logger.warning("Download proxy route failed, retrying direct.")
-            response = open_stream(None)
+            logger.warning("Direct download route failed, retrying through proxy.")
+            response = open_stream(proxy)
         response.raise_for_status()
     except requests.RequestException as exc:
         logger.warning("Download proxy failed: %s", str(exc)[:200])
@@ -115,7 +121,7 @@ def download_file(src: str, filename: str = "mediapull-download"):
     if response.headers.get("Content-Length"):
         headers["Content-Length"] = response.headers["Content-Length"]
     return StreamingResponse(
-        response.iter_content(chunk_size=262144),
+        response.iter_content(chunk_size=1048576),
         media_type=response.headers.get("Content-Type", "application/octet-stream"),
         headers=headers,
     )
@@ -124,6 +130,9 @@ def download_file(src: str, filename: str = "mediapull-download"):
 @app.post("/api/extract")
 def extract_media(request: ExtractRequest):
     target_url = validate_public_url(str(request.url))
+    cached = EXTRACT_CACHE.get(target_url)
+    if cached and time.time() - cached[0] < EXTRACT_CACHE_TTL:
+        return cached[1]
     proxy = get_brightdata_proxy()
     logs = public_logs(proxy is not None)
     lowered = target_url.lower().split("?", 1)[0]
@@ -163,7 +172,9 @@ def extract_media(request: ExtractRequest):
             "no_warnings": True,
             "skip_download": True,
             "ignore_no_formats_error": True,
-            "extractor_args": {"youtube": {"player_client": ["android", "web_safari", "tv", "ios"]}},
+            "noplaylist": True,
+            "socket_timeout": 12,
+            "extractor_args": {"youtube": {"player_client": ["android", "web_safari"]}},
         }
         if active_proxy:
             options["proxy"] = active_proxy
@@ -171,14 +182,17 @@ def extract_media(request: ExtractRequest):
             return ydl.extract_info(target_url, download=False)
 
     try:
+        # Direct route first: it answers in a couple of seconds where the
+        # residential proxy usually needs ten or more.
         try:
-            info = run_ydl(proxy)
-        except Exception as proxy_exc:  # noqa: BLE001
+            info = run_ydl(None)
+            logs = public_logs(False)
+        except Exception as direct_exc:  # noqa: BLE001
             if not proxy:
                 raise
-            logger.warning("Proxy route failed, retrying direct: %s", str(proxy_exc)[:200])
-            logs = public_logs(False)
-            info = run_ydl(None)
+            logger.warning("Direct route failed, retrying through proxy: %s", str(direct_exc)[:200])
+            logs = public_logs(True)
+            info = run_ydl(proxy)
         formats = []
         for item in info.get("formats", []):
             if item.get("vcodec") == "none" and item.get("acodec") == "none":
@@ -194,7 +208,12 @@ def extract_media(request: ExtractRequest):
                     size = round(float(tbr) * 1000 * float(duration) / 8)
             formats.append({"format_id": item.get("format_id"), "ext": item.get("ext"), "resolution": "Audio only" if audio_only else item.get("resolution") or (f"{height}p" if height else "Original"), "url": item.get("url"), "note": f"{round(bitrate)} kbps" if audio_only and bitrate else item.get("format_note") or "Standard quality", "audio_only": audio_only, "filesize": size})
         formats.sort(key=lambda item: (not item["audio_only"], item["resolution"]), reverse=True)
-        return {"success": True, "type": "video_audio", "title": info.get("title") or "Extracted media", "thumbnail": info.get("thumbnail"), "duration": info.get("duration"), "logs": logs, "formats": formats[:16]}
+        payload = {"success": True, "type": "video_audio", "title": info.get("title") or "Extracted media", "thumbnail": info.get("thumbnail"), "duration": info.get("duration"), "logs": logs, "formats": formats[:16]}
+        EXTRACT_CACHE[target_url] = (time.time(), payload)
+        if len(EXTRACT_CACHE) > 200:
+            for key in sorted(EXTRACT_CACHE, key=lambda item: EXTRACT_CACHE[item][0])[:100]:
+                EXTRACT_CACHE.pop(key, None)
+        return payload
     except Exception as exc:
         logger.warning("Media extraction failed for %s: %s: %s", target_url, type(exc).__name__, str(exc)[:400])
         reason = str(exc)[:300] or type(exc).__name__
