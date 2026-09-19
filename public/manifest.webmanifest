@@ -1,0 +1,17 @@
+{
+  "name": "MediaPull.co",
+  "short_name": "MediaPull",
+  "description": "Fast media and document extraction workspace.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#090d15",
+  "theme_color": "#0d7cff",
+  "icons": [
+    {
+      "src": "/mediapull-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

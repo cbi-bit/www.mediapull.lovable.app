@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="r" x1="82" y1="70" x2="430" y2="445" gradientUnits="userSpaceOnUse"><stop stop-color="#0D7CFF"/><stop offset="1" stop-color="#21D4FD"/></linearGradient>
+    <linearGradient id="a" x1="180" y1="154" x2="340" y2="382" gradientUnits="userSpaceOnUse"><stop stop-color="#73E9FF"/><stop offset="1" stop-color="#0D7CFF"/></linearGradient>
+    <filter id="g" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="14" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="#090D15"/>
+  <circle cx="256" cy="256" r="174" fill="none" stroke="#18334D" stroke-width="15"/>
+  <path d="M256 82a174 174 0 1 1-123 51" fill="none" stroke="url(#r)" stroke-width="22" stroke-linecap="round" filter="url(#g)"/>
+  <path d="M164 183h75v132l-37 52-38-52V183Zm111-31h75v163l-37 52-38-52V152Z" fill="url(#a)"/>
+  <path d="m147 183 55-43 55 43H147Zm110-31 56-43 55 43H257Z" fill="#090D15"/>
+</svg>

@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>MediaPull Toolbox</title>
+    <style>
+      :root { color-scheme: dark; }
+      body { margin: 0; width: 340px; font-family: "Segoe UI", system-ui, sans-serif; background: #0b1017; color: #e8eef7; }
+      header { display: flex; align-items: center; gap: 10px; padding: 14px 16px; border-bottom: 1px solid #1c2735; }
+      header img { width: 26px; height: 26px; }
+      header strong { font-size: 15px; }
+      header strong span { color: #0d7cff; }
+      .pull { padding: 14px 16px; border-bottom: 1px solid #1c2735; }
+      button.primary { width: 100%; height: 38px; border: 0; border-radius: 8px; background: #0d7cff; color: #fff; font-weight: 700; cursor: pointer; }
+      button.primary:hover { background: #2f90ff; }
+      h2 { margin: 14px 16px 6px; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: #7d8ea4; }
+      .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 0 16px 16px; }
+      a.tool { display: block; padding: 9px 10px; border: 1px solid #1c2735; border-radius: 8px; color: #e8eef7; text-decoration: none; font-size: 12px; font-weight: 600; }
+      a.tool:hover { border-color: #0d7cff; }
+      footer { padding: 10px 16px 14px; font-size: 11px; color: #7d8ea4; text-align: center; }
+    </style>
+  </head>
+  <body>
+    <header>
+      <img src="icon.png" alt="" />
+      <strong>Media<span>Pull</span>.co</strong>
+    </header>
+    <div class="pull">
+      <button class="primary" id="pull">Pull media from this page</button>
+    </div>
+    <h2>Quick tools</h2>
+    <div class="grid" id="tools"></div>
+    <footer>Free, no account, no limits.</footer>
+    <script src="popup.js"></script>
+  </body>
+</html>

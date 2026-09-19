@@ -1,0 +1,13 @@
+{
+  "manifest_version": 3,
+  "name": "MediaPull.co Toolbox",
+  "version": "1.0.0",
+  "description": "Free media and document tools: download videos, convert images, merge PDFs, make QR codes and more.",
+  "permissions": ["contextMenus", "tabs", "storage"],
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": { "128": "icon.png" }
+  },
+  "background": { "service_worker": "background.js" },
+  "icons": { "48": "icon.png", "128": "icon.png" }
+}

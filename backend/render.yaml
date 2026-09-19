@@ -1,0 +1,25 @@
+services:
+  - type: web
+    name: mediapull-engine
+    runtime: docker
+    plan: starter
+    region: frankfurt
+    rootDir: backend
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: ALLOWED_ORIGINS
+        value: https://mediapull.lovable.app
+      - key: BRIGHTDATA_HOST
+        value: brd.superproxy.io
+      - key: BRIGHTDATA_PORT
+        value: "33335"
+      - key: MAX_UPLOAD_MB
+        value: "512"
+      - key: BRIGHTDATA_CUSTOMER_ID
+        sync: false
+      - key: BRIGHTDATA_ZONE
+        sync: false
+      - key: BRIGHTDATA_PASSWORD
+        sync: false
